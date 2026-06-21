@@ -1,0 +1,4 @@
+vivado.*
+vivado_proj/
+vivado_setup.tcl
+.vscode/
