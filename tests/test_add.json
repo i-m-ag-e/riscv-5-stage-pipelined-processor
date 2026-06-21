@@ -1,0 +1,9 @@
+{
+    "assembly": "tests/test_add.s",
+    "checks": {
+        "x5": 15,
+        "x6": 25,
+        "x7": 40,
+        "dmem[4096]": 40
+    }
+}
