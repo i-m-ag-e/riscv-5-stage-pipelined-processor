@@ -23,7 +23,7 @@ module decoder (
 
     always_comb begin
         casez (i_instruction)
-            ADD, AND, OR, SUB, XOR: o_inst_type = InstRType;
+            ADD, AND, OR, SLL, SLT, SLTU, SRA, SRL, SUB, XOR: o_inst_type = InstRType;
 
             ADDI, ANDI, JALR, LB, LH, LW,  //
             LBU, LHU, ORI, SLTI, SLTIU, SLLI, SRLI, SRAI, XORI: begin

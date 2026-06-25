@@ -1,0 +1,10 @@
+{
+    "assembly": "tests/array_sum.s",
+    "checks" : {
+        "x5": 4096,
+        "x6": 150,
+        "x7": 5,
+        "x8": 5,
+        "dmem[0x1000]": 150
+    }
+}

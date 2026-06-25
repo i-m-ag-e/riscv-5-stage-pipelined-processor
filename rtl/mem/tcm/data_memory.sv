@@ -1,5 +1,6 @@
 module data_memory #(
-    parameter int RAM_ADDR_WIDTH = 16
+    parameter int RAM_ADDR_WIDTH = 16,
+    parameter string INIT_FILE = ""
 ) (
     input logic clk,
 
@@ -13,6 +14,12 @@ module data_memory #(
 );
 
     logic [31:0] ram[(1 << RAM_ADDR_WIDTH)];
+
+    initial begin
+        if (INIT_FILE != "") begin
+            $readmemh(INIT_FILE, ram);
+        end
+    end
 
     wire [RAM_ADDR_WIDTH - 1:0] word_addr = i_addr[RAM_ADDR_WIDTH+1:2];
 

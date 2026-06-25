@@ -3,7 +3,7 @@ package pipeline_reg_types;
 
     typedef struct packed {
         logic [31:0] pc;
-        // logic [31:0] instruction;
+        logic [31:0] instruction;
         logic        valid;
     } if_id_reg_t;
 
@@ -50,6 +50,7 @@ package pipeline_reg_types;
         logic mem_to_reg;
         logic pc_result_to_reg;
 
+        logic [31:0] read_data;
         logic [31:0] alu_result;
         logic [2:0]  funct3;
         logic [31:0] pc_rel_addr;

@@ -4,16 +4,17 @@ module reg_id_ex (
     input logic clk,
     input logic rst_n,
     input logic flush,
+    input logic stall,
 
     input  id_ex_reg_t i_data,
     output id_ex_reg_t o_data
 );
 
     always_ff @(posedge clk) begin
-        if (!rst_n || flush) begin
+        if (!rst_n || (!stall && flush)) begin
             o_data <= {$bits(id_ex_reg_t) {1'b0}};
         end
-        else o_data <= i_data;
+        else if (!stall) o_data <= i_data;
     end
 
 endmodule

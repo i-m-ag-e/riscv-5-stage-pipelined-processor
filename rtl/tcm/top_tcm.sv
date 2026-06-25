@@ -1,4 +1,9 @@
-module top (
+module top_tcm #(
+    parameter int ROM_ADDR_WIDTH = 9,
+    parameter string ROM_INIT_FILE = "firmware.mem",
+    parameter int RAM_ADDR_WIDTH = 12,
+    parameter string RAM_INIT_FILE = ""
+) (
     input logic clk,
     input logic rst_n
 );
@@ -14,8 +19,8 @@ module top (
     logic [3:0] dmem_byte_en;
 
     instruction_memory #(
-        .INST_ADDR_WIDTH(9),
-        .INIT_FILE      ("firmware.mem")
+        .INST_ADDR_WIDTH(ROM_ADDR_WIDTH),
+        .INIT_FILE      (ROM_INIT_FILE)
     ) instruction_memory (
         .clk          (clk),
         .i_addr       (imem_addr),
@@ -23,7 +28,8 @@ module top (
     );
 
     data_memory #(
-        .RAM_ADDR_WIDTH(16)
+        .RAM_ADDR_WIDTH(RAM_ADDR_WIDTH),
+        .INIT_FILE     (RAM_INIT_FILE)
     ) data_memory (
         .clk         (clk),
         .i_mem_read  (dmem_read),
@@ -34,7 +40,7 @@ module top (
         .o_data      (dmem_rdata)
     );
 
-    datapath datapath (
+    datapath_tcm datapath (
         .clk           (clk),
         .rst_n         (rst_n),
         .i_imem_instr  (imem_instr),
