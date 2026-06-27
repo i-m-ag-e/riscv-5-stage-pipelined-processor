@@ -2,7 +2,6 @@ import pipeline_reg_types::*;
 import riscv_opcodes::*;
 import alu_definitions::*;
 import instruction_type::*;
-import forward_type::*;
 
 module datapath (
     input logic clk,
@@ -34,43 +33,6 @@ module datapath (
     id_ex_reg_t id_ex_in, id_ex_out;
     ex_mem_reg_t ex_mem_in, ex_mem_out;
     mem_wb_reg_t mem_wb_in, mem_wb_out;
-
-    // // -------------- IF STAGE --------------
-    // logic [31:0] current_inst;
-
-    // assign if_id_in.pc    = pc;
-    // assign if_id_in.valid = 1;
-
-    // assign o_imem_addr    = pc;
-    // assign current_inst   = i_imem_instr;
-
-    // // -------------- IF STAGE --------------
-    // logic [31:0] current_inst;
-    // logic [31:0] hold_inst;
-    // logic was_stalled;
-
-    // // Latch the instruction unless we are stalled
-    // always_ff @(posedge clk) begin
-    //     if (!rst_n) begin
-    //         hold_inst   <= 32'd0;
-    //         was_stalled <= 1'b0;
-    //     end
-    //     else begin
-    //         was_stalled <= if_id_stall;
-    //         if (!if_id_stall) begin
-    //             hold_inst <= i_imem_instr;
-    //         end
-    //     end
-    // end
-
-    // // The BRAM is synchronous and cannot be stopped.
-    // // If we stalled, the BRAM already output the next instruction. Use the hold register!
-    // assign current_inst   = was_stalled ? hold_inst : i_imem_instr;
-
-    // assign if_id_in.pc    = pc;
-    // assign if_id_in.valid = 1;
-
-    // assign o_imem_addr    = pc;
 
     // -------------- IF STAGE --------------
     logic [31:0] current_inst;
@@ -273,43 +235,32 @@ module datapath (
         .o_alu_control(alu_ctrl)
     );
 
-    forward_t forward_a, forward_b;
+    logic [31:0] forwarded_a, forwarded_b;
     forwarding_unit forwarding_unit (
-        .i_rs1          (id_ex_out.rs1),
-        .i_rs2          (id_ex_out.rs2),
-        .i_mem_reg_write(ex_mem_out.reg_write),
-        .i_mem_rd       (ex_mem_out.rd),
-        .i_wb_reg_write (mem_wb_out.reg_write),
-        .i_wb_rd        (mem_wb_out.rd),
-        .o_forward_a    (forward_a),
-        .o_forward_b    (forward_b)
+        .i_rs1     (id_ex_out.rs1),
+        .i_rs2     (id_ex_out.rs2),
+        .i_rs1_data(id_ex_out.rs1_data),
+        .i_rs2_data(id_ex_out.rs2_data),
+
+        .i_mem_reg_write (ex_mem_out.reg_write),
+        .i_mem_rd        (ex_mem_out.rd),
+        .i_mem_alu_result(ex_mem_out.alu_result),
+
+        .i_wb_reg_write(mem_wb_out.reg_write),
+        .i_wb_rd       (mem_wb_out.rd),
+        .i_wb_data     (wb_data),
+
+        .o_forwarded_a(forwarded_a),
+        .o_forwarded_b(forwarded_b)
     );
-
-    logic [31:0] ex_rs1_data, ex_rs2_data;
-    always_comb begin
-        ex_rs1_data = id_ex_out.rs1_data;
-        ex_rs2_data = id_ex_out.rs2_data;
-
-        unique case (forward_a)
-            FwdNormal: ex_rs1_data = id_ex_out.rs1_data;
-            FwdMem: ex_rs1_data = ex_mem_out.alu_result;
-            FwdWB: ex_rs1_data = wb_data;
-        endcase
-
-        unique case (forward_b)
-            FwdNormal: ex_rs2_data = id_ex_out.rs2_data;
-            FwdMem: ex_rs2_data = ex_mem_out.alu_result;
-            FwdWB: ex_rs2_data = wb_data;
-        endcase
-    end
 
     logic [31:0] alu_operand_2, alu_result;
 
-    assign alu_operand_2 = id_ex_out.alu_src ? id_ex_out.imm : ex_rs2_data;
+    assign alu_operand_2 = id_ex_out.alu_src ? id_ex_out.imm : forwarded_b;
 
     alu alu (
         .i_alu_control(alu_ctrl),
-        .i_operand_a  (ex_rs1_data),
+        .i_operand_a  (forwarded_a),
         .i_operand_b  (alu_operand_2),
         .o_result     (alu_result)
     );
@@ -324,7 +275,7 @@ module datapath (
             mem_write: id_ex_out.mem_write,
             funct3: id_ex_out.funct3,
             rd: id_ex_out.rd,
-            rs2_data: ex_rs2_data,
+            rs2_data: forwarded_b,
             pc_rel_addr: id_ex_out.pc_rel_addr
         };
     end
