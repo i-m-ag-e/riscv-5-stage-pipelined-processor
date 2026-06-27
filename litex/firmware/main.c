@@ -115,11 +115,10 @@ void print_str(const char *str) {
 }
 
 int main(void) {
-    print_str("\n==========================================\n\r");
-    print_str("===   DYNAMIC CSR BARE METAL SUCCESS   ===\n\r");
-    print_str("==========================================\n\r");
-    print_str("Hardware registers linked automatically.\n\r");
-    print_str("Type something to echo it back:\n\r");
+    print_str("===   Processor is able to communicate through UART!   ===\n\r");
+    print_str("Typing a letter will print it with it's case toggled.\n\r");
+    print_str("Typing a digit will print it as it's distance from digit 9 (for example, \"123\" echoes back as \"876\".\n\r");
+    print_str("Type something below:\n\r");
 
     while(1) {
         // If the receive buffer is not empty
@@ -132,7 +131,12 @@ int main(void) {
             
             // Wait for TX buffer space and echo it back
             while (UART_TXFULL) { }
-            UART_RXTX = (c >= 'a' && c <= 'b')? (c - 'a' + 'A') : (c >= '0' && c <= '9')? (9 - c + 2 * '0') : c;
+
+            if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
+            else if (c >= 'A' && c <= 'Z') c = c - 'A' + 'a';
+            else if (c >= '0' && c <= '9') c = 9 - c + 2 * '0';
+
+            UART_RXTX = c;
             UART_EV_PENDING = UART_EV_TX;
         }
     }

@@ -8,7 +8,7 @@ class MyRISCVCPU(CPU):
     family               = "riscv"
     data_width           = 32
     endianness           = "little"
-    gcc_triple           = "riscv32-unknown-elf" 
+    gcc_triple           = "riscv64-unknown-elf" 
     gcc_flags            = "-march=rv32i -mabi=ilp32"
     linker_output_format = "elf32-littleriscv"
     variants             = ["standard"]
