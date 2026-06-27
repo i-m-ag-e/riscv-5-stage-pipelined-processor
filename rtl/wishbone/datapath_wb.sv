@@ -1,11 +1,11 @@
 import pipeline_reg_types::*;
-import riscv_opcodes::*;
 import alu_definitions::*;
 import instruction_type::*;
 
-module datapath (
+module datapath_wb (
     input logic clk,
     input logic rst_n,
+    input logic i_stall,
 
     input logic [31:0] i_imem_instr,
     input logic [31:0] i_dmem_rdata,
@@ -22,13 +22,6 @@ module datapath (
     logic [31:0] pc, next_pc;
     logic pc_stall, if_id_stall, if_id_flush, id_ex_flush;
 
-    always_ff @(posedge clk) begin
-        if (!rst_n) pc <= 32'd0;
-        else if (!pc_stall) begin
-            pc <= next_pc;
-        end
-    end
-
     if_id_reg_t if_id_in, if_id_out;
     id_ex_reg_t id_ex_in, id_ex_out;
     ex_mem_reg_t ex_mem_in, ex_mem_out;
@@ -36,38 +29,27 @@ module datapath (
 
     // -------------- IF STAGE --------------
     logic [31:0] current_inst;
-    logic [31:0] hold_inst;
-    logic was_stalled;
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin
-            was_stalled <= 1'b0;
-            hold_inst   <= 32'd0;
+            pc <= 32'd0;
         end
         else begin
-            was_stalled <= if_id_stall;
-
-            // TRIPWIRE: Only capture the BRAM output on the exact edge the stall begins!
-            if (if_id_stall && !was_stalled) begin
-                hold_inst <= i_imem_instr;
-            end
+            if (!pc_stall && !i_stall) pc <= next_pc;
         end
     end
 
-    // If we are currently stalled, OR if we just finished stalling (recovering), use the held instruction.
-    // Otherwise, perfectly align with the live synchronous BRAM output.
-    assign current_inst   = was_stalled ? hold_inst : i_imem_instr;
+    assign current_inst = i_imem_instr;
 
-    assign if_id_in.pc    = pc;
-    assign if_id_in.valid = 1;
+    assign if_id_in     = '{pc: pc, instruction: current_inst, valid: 1};
 
-    assign o_imem_addr    = pc;
+    assign o_imem_addr  = pc;
 
     reg_if_id reg_if_id (
         .clk   (clk),
         .rst_n (rst_n),
         .flush (if_id_flush),
-        .stall (if_id_stall),
+        .stall (if_id_stall | i_stall),
         .i_data(if_id_in),
         .o_data(if_id_out)
     );
@@ -96,7 +78,7 @@ module datapath (
     logic [31:0] imm, rs1_data, rs2_data;
 
     decoder decoder (
-        .i_instruction(current_inst),
+        .i_instruction(if_id_out.instruction),
         .o_inst_type  (inst_type),
         .o_opcode     (opcode),
         .o_rs1        (rs1),
@@ -121,7 +103,7 @@ module datapath (
     );
 
     imm_generator imm_generator (
-        .i_instruction(current_inst),
+        .i_instruction(if_id_out.instruction),
         .i_inst_type  (inst_type),
         .o_imm        (imm)
     );
@@ -139,41 +121,26 @@ module datapath (
         .o_read_data2(rs2_data)
     );
 
-    logic [31:0] adder_base, target_addr, final_jump_target;
-    assign adder_base = is_jump_reg ? rs1_data : if_id_out.pc;
-    branch_adder branch_adder (
-        .i_base       (adder_base),
-        .i_imm        (imm),
-        .o_target_addr(target_addr)
+    logic [31:0] final_jump_target, pc_rel_addr;
+    logic branch_taken;
+
+    branch_unit branch_unit (
+        .i_jump_reg    (is_jump_reg),
+        .i_branch      (is_branch),
+        .i_funct3      (funct3),
+        .i_opcode      (opcode),
+        .i_pc          (if_id_out.pc),
+        .i_imm         (imm),
+        .i_rs1_data    (rs1_data),
+        .i_rs2_data    (rs2_data),
+        .o_branch_taken(branch_taken),
+        .o_pc_rel_addr (pc_rel_addr),
+        .o_target_addr (final_jump_target)
     );
 
-    wire is_unsigned = is_branch && (funct3 == 3'b110 || funct3 == 3'b111);
-    logic branch_eq, branch_lt, branch_taken;
-
-    branch_comparator branch_comparator (
-        .i_data_A       (rs1_data),
-        .i_data_B       (rs2_data),
-        .i_unsigned_comp(is_unsigned),
-        .o_branch_eq    (branch_eq),
-        .o_branch_lt    (branch_lt)
-    );
-
-    always_comb begin
-        case (funct3)
-            3'b000: branch_taken = branch_eq;
-            3'b001: branch_taken = ~branch_eq;
-            3'b100, 3'b110: branch_taken = branch_lt;
-            3'b101, 3'b111: branch_taken = ~branch_lt;
-            default: branch_taken = 1'b0;
-        endcase
-    end
-
-    assign final_jump_target = is_jump_reg ? {target_addr[31:1], 1'b0} : target_addr;
     assign next_pc = (if_id_out.valid && (is_jump || (is_branch && branch_taken))) ?
         final_jump_target : (pc + 4);
 
-    logic [31:0] pc_rel_addr;
-    assign pc_rel_addr = (opcode == OPCODE_AUIPC) ? target_addr : (if_id_out.pc + 4);
     always_comb begin
         if (if_id_out.valid) begin
             id_ex_in = '{
@@ -202,7 +169,7 @@ module datapath (
         .i_rs1                 (rs1),
         .i_rs2                 (rs2),
         .i_instr_branch_or_jalr(if_id_out.valid && (is_branch || is_jump_reg)),
-        .i_ex_mem_write        (id_ex_out.mem_read),
+        .i_ex_mem_read         (id_ex_out.mem_read),
         .i_ex_reg_write        (id_ex_out.reg_write),
         .i_ex_rd               (id_ex_out.rd),
         .i_mem_reg_write       (ex_mem_out.reg_write),
@@ -218,6 +185,7 @@ module datapath (
         .clk   (clk),
         .rst_n (rst_n),
         .flush (id_ex_flush),
+        .stall (i_stall),
         .i_data(id_ex_in),
         .o_data(id_ex_out)
     );
@@ -283,6 +251,7 @@ module datapath (
     reg_ex_mem reg_ex_mem (
         .clk   (clk),
         .rst_n (rst_n),
+        .stall(i_stall),
         .i_data(ex_mem_in),
         .o_data(ex_mem_out)
     );
@@ -314,6 +283,7 @@ module datapath (
             alu_result: ex_mem_out.alu_result,
             mem_to_reg: ex_mem_out.mem_to_reg,
             pc_result_to_reg: ex_mem_out.pc_result_to_reg,
+            read_data: i_dmem_rdata,
             pc_rel_addr: ex_mem_out.pc_rel_addr,
             rd: ex_mem_out.rd,
             reg_write: ex_mem_out.reg_write,
@@ -325,6 +295,7 @@ module datapath (
     reg_mem_wb reg_mem_wb (
         .clk   (clk),
         .rst_n (rst_n),
+        .stall(i_stall),
         .i_data(mem_wb_in),
         .o_data(mem_wb_out)
     );
@@ -334,7 +305,7 @@ module datapath (
     // -------------- WB STAGE --------------
 
     load_formatter load_formatter (
-        .i_read_data  (i_dmem_rdata),
+        .i_read_data  (mem_wb_out.read_data),
         .i_funct3     (mem_wb_out.funct3),
         .i_addr_offset(mem_wb_out.alu_result[1:0]),
         .o_result     (formatted_dmem_rdata)

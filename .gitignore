@@ -1,4 +1,26 @@
+# Vivado
 vivado.*
 vivado_proj/
-vivado_setup.tcl
+.Xil/
+
 .vscode/
+
+# Verilator build
+obj_dir/
+
+# Simulation 
+*.vcd
+
+# Build stuff
+*.o
+*.elf
+*.bin
+*.mem
+
+# LiteX build output
+litex/build/
+
+# Python cache
+__pycache__/
+*.pyc
+

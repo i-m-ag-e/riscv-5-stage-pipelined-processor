@@ -73,7 +73,7 @@ module tb_control_unit ();
         check(OPCODE_LUI, 9'b000_000_011, ALUOpJLType);
         check(OPCODE_AUIPC, 9'b000_100_010, ALUOpJLType);
         check(OPCODE_STORE, 9'b000_000_100, ALUOpJLType);
-        check(7'b0000000, 9'b000_000_000, ALUOpJLType);  // Invalid
+        check(7'b0000000, 9'b000_000_000, ALUOpRType);  // Invalid
 
         if (errors == 0) $display("tb_control_unit: PASS");
         else $display("tb_control_unit: FAIL with %0d errors", errors);

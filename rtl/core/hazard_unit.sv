@@ -3,7 +3,7 @@ module hazard_unit (
     input logic [4:0] i_rs2,
     input logic i_instr_branch_or_jalr,
 
-    input logic i_ex_mem_write,
+    input logic i_ex_mem_read,
     input logic i_ex_reg_write,
     input logic [4:0] i_ex_rd,
 
@@ -28,7 +28,7 @@ module hazard_unit (
         o_flush_if_id = 1'b0;
         o_flush_id_ex = 1'b0;
 
-        if (i_ex_mem_write && i_ex_rd != 5'b0 && (i_ex_rd == i_rs1 || i_ex_rd == i_rs2)) begin
+        if (i_ex_mem_read && i_ex_rd != 5'b0 && (i_ex_rd == i_rs1 || i_ex_rd == i_rs2)) begin
             o_stall_pc    = 1'b1;
             o_stall_if_id = 1'b1;
             o_flush_id_ex = 1'b1;

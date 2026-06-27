@@ -1,0 +1,8 @@
+{
+    "assembly": "tests/function_call.s",
+    "checks": {
+        "x5": 7,
+        "x6": 0,
+        "dmem[0x1000]": 42
+    }
+}

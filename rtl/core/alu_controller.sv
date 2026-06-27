@@ -1,7 +1,5 @@
 import alu_definitions::*;
 
-// Reference: H&P: Figure 4.12, Page 502
-
 module alu_controller (
     input alu_op_t i_alu_op,
     input logic [2:0] i_funct3,

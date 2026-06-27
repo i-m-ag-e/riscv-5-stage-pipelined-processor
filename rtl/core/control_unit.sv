@@ -27,7 +27,7 @@ module control_unit (
         o_mem_write        = 1'b0;
         o_reg_write        = 1'b0;
         o_rs1_zero         = 1'b0;
-        o_alu_op           = ALUOpJLType;
+        o_alu_op           = ALUOpRType;
 
         casez (i_opcode)
             OPCODE_RTYPE: begin
